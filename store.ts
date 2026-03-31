@@ -54,15 +54,19 @@ type StoreState = {
 
   workoutSessions: WorkoutSession[];
   saveWorkoutSession: (label: string) => void;
+  resetWorkoutData: () => void;
 
   timerSessions: TimerSession[];
   addTimerSession: (session: Omit<TimerSession, 'id' | 'date'>) => void;
+  resetTimerData: () => void;
 
   timer: TimerState;
   startTimer: (goalSecs: number, methodName: string) => void;
   pauseTimer: (elapsed: number) => void;
   resumeTimer: () => void;
   stopTimer: () => void;
+
+  resetAllMainStoreData: () => void;
 };
 
 function newSet(): SetEntry {
@@ -82,6 +86,14 @@ function newBlock(isSuperset = false): Block {
 }
 
 export { newBlock, newExercise, newSet };
+
+const EMPTY_TIMER: TimerState = {
+  startTime: null,
+  goalSecs: 3600,
+  running: false,
+  methodName: '',
+  pausedElapsed: 0,
+};
 
 export const useStore = create<StoreState>((set, get) => ({
   blocks: [],
@@ -151,6 +163,12 @@ export const useStore = create<StoreState>((set, get) => ({
     }));
   },
 
+  resetWorkoutData: () =>
+    set({
+      blocks: [],
+      workoutSessions: [],
+    }),
+
   timerSessions: [],
 
   addTimerSession: (session) =>
@@ -161,13 +179,13 @@ export const useStore = create<StoreState>((set, get) => ({
       ],
     })),
 
-  timer: {
-    startTime: null,
-    goalSecs: 3600,
-    running: false,
-    methodName: '',
-    pausedElapsed: 0,
-  },
+  resetTimerData: () =>
+    set({
+      timerSessions: [],
+      timer: EMPTY_TIMER,
+    }),
+
+  timer: EMPTY_TIMER,
 
   startTimer: (goalSecs, methodName) =>
     set({ timer: { startTime: Date.now(), goalSecs, running: true, methodName, pausedElapsed: 0 } }),
@@ -183,5 +201,13 @@ export const useStore = create<StoreState>((set, get) => ({
     })),
 
   stopTimer: () =>
-    set({ timer: { startTime: null, goalSecs: 3600, running: false, methodName: '', pausedElapsed: 0 } }),
+    set({ timer: EMPTY_TIMER }),
+
+  resetAllMainStoreData: () =>
+    set({
+      blocks: [],
+      workoutSessions: [],
+      timerSessions: [],
+      timer: EMPTY_TIMER,
+    }),
 }));

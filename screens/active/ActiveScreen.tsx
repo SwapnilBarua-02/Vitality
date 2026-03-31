@@ -7,12 +7,10 @@ import { useEffect, useRef } from 'react';
 import Svg, { Circle } from 'react-native-svg';
 import { useStore } from '../../store';
 
-// ─── Constants ───────────────────────────────────────────────────────────────
 const MONTH_DAYS = 31;
 const TODAY = new Date().getDate();
 const MONTH = new Date().toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
 
-// Mock progress data for the calendar (replace with real data later)
 const mockProgress: Record<number, number> = {
   1: 1.0, 2: 0.6, 3: 0.3, 4: 1.0, 5: 0.8,
   6: 0.0, 7: 0.5, 8: 1.0, 9: 0.9, 10: 0.4,
@@ -21,67 +19,76 @@ const mockProgress: Record<number, number> = {
   21: 0.5, 22: 0.4,
 };
 
-// ─── Mini Ring (used in calendar) ────────────────────────────────────────────
-// Each small circle in the calendar grid showing daily progress
-const RING_SIZE = 28;
-const RING_STROKE = 3;
+const RING_SIZE = 36;
+const RING_STROKE = 4;
 const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
 const RING_CIRC = 2 * Math.PI * RING_RADIUS;
 
 function MiniRing({ progress, isToday }: { progress: number; isToday: boolean }) {
-  // Pulse animation — only runs on today's ring
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (!isToday) return;
+
     Animated.loop(
       Animated.sequence([
-        Animated.timing(anim, { toValue: 1, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 0, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 1800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true
+        }),
+        Animated.timing(anim, {
+          toValue: 0,
+          duration: 1800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true
+        }),
       ])
     ).start();
-  }, []);
+  }, [anim, isToday]);
 
-  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] });
+  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.75, 1] });
   const filled = RING_CIRC * progress;
 
   return (
     <Animated.View style={{ opacity: isToday ? opacity : 1 }}>
       <Svg width={RING_SIZE} height={RING_SIZE}>
-        {/* Background track */}
         <Circle
-          cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_RADIUS}
-          fill="none" stroke="#1c1c1c" strokeWidth={RING_STROKE}
+          cx={RING_SIZE / 2}
+          cy={RING_SIZE / 2}
+          r={RING_RADIUS}
+          fill="none"
+          stroke="#23252B"
+          strokeWidth={RING_STROKE}
         />
-        {/* Progress arc */}
         {progress > 0 && (
           <Circle
-            cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_RADIUS}
+            cx={RING_SIZE / 2}
+            cy={RING_SIZE / 2}
+            r={RING_RADIUS}
             fill="none"
-            stroke="#FF375F"
+            stroke="#FF5A5F"
             strokeWidth={RING_STROKE}
-            strokeOpacity={progress >= 1 ? 1 : 0.4 + progress * 0.5}
+            strokeOpacity={progress >= 1 ? 1 : 0.45 + progress * 0.45}
             strokeDasharray={`${filled} ${RING_CIRC - filled}`}
             strokeDashoffset={RING_CIRC * 0.25}
             strokeLinecap="round"
           />
         )}
       </Svg>
-      {/* Small red dot under today's ring */}
       {isToday && <View style={styles.todayDot} />}
     </Animated.View>
   );
 }
 
-// ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function ActiveScreen() {
   const navigation = useNavigation<any>();
-
-  // Pull data from global store
   const { blocks, workoutSessions } = useStore();
 
-  // ─── Metric calculations (used in Today's stats cards) ───────────────────
   const allExercises = blocks.flatMap(b => b.exercises);
   const allSets = allExercises.flatMap(e => e.sets);
+
   const totalWeight = allSets.reduce((s, set) =>
     s + (parseFloat(set.weight) || 0) * (parseInt(set.reps) || 0), 0
   );
@@ -89,42 +96,35 @@ export default function ActiveScreen() {
   const totalExercises = allExercises.filter(e => e.name.trim() !== '').length;
   const totalSets = allSets.length;
 
-  // Array of day numbers [1, 2, 3, ... 31] for the calendar grid
   const days = Array.from({ length: MONTH_DAYS }, (_, i) => i + 1);
 
   return (
     <SafeAreaView style={styles.safe}>
-
-      {/* ─── Header — back button + red dot ─────────────────────────────── */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Text style={styles.backArrow}>‹</Text>
           <Text style={styles.backText}>Today</Text>
         </TouchableOpacity>
-        <View style={[styles.dot, { backgroundColor: '#FF375F' }]} />
+        <View style={[styles.dot, { backgroundColor: '#FF5A5F' }]} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
+        <Text style={styles.heading}>Activity</Text>
 
-        {/* ─── Page title ──────────────────────────────────────────────── */}
-        <Text style={styles.heading}>Being active</Text>
-
-        {/* ─── Calendar section ────────────────────────────────────────── */}
-        {/* Shows a grid of mini rings, one per day of the month */}
         <Text style={styles.sectionLabel}>{MONTH}</Text>
-        <View style={styles.calendar}>
-          {days.map(day => (
-            <View key={day} style={styles.dayCell}>
-              <MiniRing progress={mockProgress[day] ?? 0} isToday={day === TODAY} />
-              <Text style={[styles.dayNum, day === TODAY && { color: '#FF375F' }]}>
-                {day}
-              </Text>
-            </View>
-          ))}
+        <View style={styles.calendarCard}>
+          <View style={styles.calendarGrid}>
+            {days.map(day => (
+              <View key={`day-${day}`} style={styles.dayCell}>
+                <MiniRing progress={mockProgress[day] ?? 0} isToday={day === TODAY} />
+                <Text style={[styles.dayNum, day === TODAY && { color: '#FF5A5F' }]}>
+                  {day}
+                </Text>
+              </View>
+            ))}
+          </View>
         </View>
 
-        {/* ─── Today's metrics section ─────────────────────────────────── */}
-        {/* 4 stat cards showing live data from the current session */}
         <Text style={styles.sectionLabel}>Today</Text>
         <View style={styles.metricsGrid}>
           <View style={styles.metricCard}>
@@ -145,8 +145,6 @@ export default function ActiveScreen() {
           </View>
         </View>
 
-        {/* ─── Log session button ──────────────────────────────────────── */}
-        {/* Tapping this opens SessionLog screen to add exercises */}
         <TouchableOpacity
           style={styles.logBtn}
           onPress={() => navigation.navigate('LogSession')}
@@ -154,15 +152,11 @@ export default function ActiveScreen() {
           <Text style={styles.logBtnText}>+ Log session</Text>
         </TouchableOpacity>
 
-        {/* ─── Past sessions history section ───────────────────────────── */}
-        {/* Shows all previously saved workout sessions */}
-        {/* Only renders if there are saved sessions */}
         {workoutSessions.length > 0 && (
           <View style={styles.historySection}>
             <Text style={styles.sectionLabel}>Past sessions</Text>
 
             {workoutSessions.map(session => {
-              // Calculate summary stats for each past session
               const allEx = session.blocks.flatMap(b => b.exercises);
               const allSt = allEx.flatMap(e => e.sets);
               const totalWt = allSt.reduce((s, set) =>
@@ -170,14 +164,12 @@ export default function ActiveScreen() {
               );
 
               return (
-                // Tapping a session card navigates to WorkoutDetail screen
                 <TouchableOpacity
                   key={session.id}
                   style={styles.historyCard}
-                  activeOpacity={0.7}
+                  activeOpacity={0.75}
                   onPress={() => navigation.navigate('WorkoutDetail', { session })}
                 >
-                  {/* Session name + date + stats */}
                   <View style={styles.historyLeft}>
                     <Text style={styles.historyLabel}>{session.label}</Text>
                     <Text style={styles.historyDate}>
@@ -199,60 +191,161 @@ export default function ActiveScreen() {
                       )}
                     </View>
                   </View>
-                  {/* Chevron arrow pointing right */}
                   <Text style={styles.historyChevron}>›</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
         )}
-
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  // Layout
-  safe:           { flex: 1, backgroundColor: '#000' },
-  scroll:         { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 60 },
+  safe: { flex: 1, backgroundColor: '#050505' },
+  scroll: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 50 },
 
-  // Header
-  header:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: '#1c1c1c' },
-  backBtn:        { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  backArrow:      { fontSize: 28, color: '#FF375F', lineHeight: 32 },
-  backText:       { fontSize: 16, color: '#FF375F' },
-  dot:            { width: 10, height: 10, borderRadius: 5 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#181A1E',
+    backgroundColor: '#050505',
+  },
+  backBtn: { flexDirection: 'row', alignItems: 'center' },
+  backArrow: { fontSize: 28, color: '#FF5A5F', lineHeight: 32, marginRight: 4 },
+  backText: { fontSize: 16, color: '#FF5A5F' },
+  dot: { width: 10, height: 10, borderRadius: 5 },
 
-  // Typography
-  heading:        { fontSize: 28, fontWeight: '700', color: '#fff', marginBottom: 20 },
-  sectionLabel:   { fontSize: 13, color: '#555', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 },
+  heading: {
+    fontSize: 30,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 18,
+    letterSpacing: -0.5,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    color: '#7A7A7A',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+  },
 
-  // Calendar grid
-  calendar:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 32 },
-  dayCell:        { alignItems: 'center', gap: 3, width: 36 },
-  dayNum:         { fontSize: 10, color: '#444' },
-  todayDot:       { width: 4, height: 4, borderRadius: 2, backgroundColor: '#FF375F', position: 'absolute', bottom: -6, alignSelf: 'center' },
+  calendarCard: {
+    backgroundColor: '#101114',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#1F2125',
+    padding: 14,
+    marginBottom: 26,
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+  },
+  dayCell: {
+    width: '14.28%',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  dayNum: {
+    fontSize: 11,
+    color: '#6A6E75',
+    marginTop: 6,
+  },
+  todayDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#FF5A5F',
+    position: 'absolute',
+    bottom: -7,
+    alignSelf: 'center',
+  },
 
-  // Metrics cards grid
-  metricsGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 32 },
-  metricCard:     { flex: 1, minWidth: '45%', backgroundColor: '#111', borderRadius: 12, padding: 16 },
-  metricValue:    { fontSize: 28, fontWeight: '700', color: '#fff', marginBottom: 4 },
-  metricLabel:    { fontSize: 12, color: '#555' },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 22,
+  },
+  metricCard: {
+    width: '48.2%',
+    backgroundColor: '#101114',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#1F2125',
+    padding: 16,
+    marginBottom: 12,
+  },
+  metricValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  metricLabel: {
+    fontSize: 12,
+    color: '#7A7A7A',
+  },
 
-  // Log session button
-  logBtn:         { backgroundColor: '#FF375F', borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginBottom: 8 },
-  logBtnText:     { fontSize: 16, fontWeight: '600', color: '#fff' },
+  logBtn: {
+    backgroundColor: '#FF5A5F',
+    borderRadius: 18,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  logBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
 
-  // Past sessions history
-  historySection: { marginTop: 32 },
-  historyCard:    { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', borderRadius: 12, padding: 16, marginBottom: 10 },
-  historyLeft:    { flex: 1 },
-  historyLabel:   { fontSize: 15, fontWeight: '600', color: '#fff', marginBottom: 4 },
-  historyDate:    { fontSize: 12, color: '#555', marginBottom: 6 },
-  historyStats:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  historyStat:    { fontSize: 12, color: '#888' },
-  historyDot:     { fontSize: 12, color: '#333' },
-  historyChevron: { fontSize: 20, color: '#333' },
+  historySection: { marginTop: 24 },
+  historyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#101114',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#1F2125',
+    padding: 16,
+    marginBottom: 10,
+  },
+  historyLeft: { flex: 1 },
+  historyLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  historyDate: {
+    fontSize: 12,
+    color: '#7A7A7A',
+    marginBottom: 6,
+  },
+  historyStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  historyStat: {
+    fontSize: 12,
+    color: '#9A9EA5',
+  },
+  historyDot: {
+    fontSize: 12,
+    color: '#3A3E45',
+    marginHorizontal: 6,
+  },
+  historyChevron: {
+    fontSize: 20,
+    color: '#4A4E55',
+  },
 });
